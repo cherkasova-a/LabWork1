@@ -1,28 +1,25 @@
 CXX = g++
 CXXFLAGS = -std=c++17 -Wall -g
-
-SRCS = main.cpp BMPImage.cpp
-OBJS = $(SRCS:.cpp=.o)
 TARGET = lab1
-
-TEST_SRCS = test_lab1.cpp BMPImage.cpp
-TEST_OBJS = $(TEST_SRCS:.cpp=.o)
 TEST_TARGET = run_tests
+
+SRC = main.cpp BMPImage.cpp
+OBJ = $(SRC:.cpp=.o)
+
+TEST_SRC = test_lab1.cpp BMPImage.cpp
+TEST_OBJ = $(TEST_SRC:.cpp=.o)
 
 all: $(TARGET) $(TEST_TARGET)
 
-$(TARGET): $(OBJS)
-	$(CXX) $(CXXFLAGS) -o $(TARGET) $(OBJS)
+$(TARGET): $(OBJ)
+	$(CXX) $(CXXFLAGS) -o $(TARGET) $(OBJ)
 
-$(TEST_TARGET): $(TEST_OBJS)
-	$(CXX) $(CXXFLAGS) -o $(TEST_TARGET) $(TEST_OBJS) -lgtest -lpthread
+$(TEST_TARGET): $(TEST_OBJ)
+	$(CXX) $(CXXFLAGS) -o $(TEST_TARGET) $(TEST_OBJ) -lgtest -lpthread
 
 %.o: %.cpp
-	$(CXX) $(CXXFLAGS) -c $<
+	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 clean:
-	rm -f $(OBJS) $(TARGET) $(TEST_OBJS) $(TEST_TARGET)
-
-test: $(TEST_TARGET)
-	./$(TEST_TARGET)
+	rm -f $(OBJ) $(TEST_OBJ) $(TARGET) $(TEST_TARGET)
 
