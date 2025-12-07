@@ -9,25 +9,33 @@
 class BMPImageTest : public ::testing::Test {
 protected:
     BMPImage img;
-
-    void SetUp() override {
-        img.load("input.bmp");
-    }
+    void SetUp() override { img.load("test.bmp"); }
 };
 
 TEST_F(BMPImageTest, RotateClockwise) {
+    int oldWidth = img.getWidth();
+    int oldHeight = img.getHeight();
     img.rotate90clockwise();
-    SUCCEED();
+    EXPECT_EQ(img.getWidth(), oldHeight);
+    EXPECT_EQ(img.getHeight(), oldWidth);
 }
 
 TEST_F(BMPImageTest, RotateCounterClockwise) {
+    int oldWidth = img.getWidth();
+    int oldHeight = img.getHeight();
     img.rotate90counter();
-    SUCCEED();
+    EXPECT_EQ(img.getWidth(), oldHeight);
+    EXPECT_EQ(img.getHeight(), oldWidth);
 }
 
 TEST_F(BMPImageTest, ApplyGaussianFilter) {
+    auto oldPixels = img.getPixelData();
     img.applyGaussian3x3();
-    SUCCEED();
+    auto newPixels = img.getPixelData();
+    bool changed = false;
+    for (size_t i = 0; i < oldPixels.size(); ++i)
+        if (oldPixels[i] != newPixels[i]) { changed = true; break; }
+    EXPECT_TRUE(changed);
 }
 
 int main(int argc, char **argv) {

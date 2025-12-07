@@ -27,6 +27,8 @@ public:
     int getWidth() const { return width; }
     int getHeight() const { return height; }
 
+    const std::vector<uint8_t>& getPixelData() const { return pixelData; }
+
 private:
     int width = 0;
     int height = 0;
