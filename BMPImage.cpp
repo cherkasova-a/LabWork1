@@ -111,4 +111,3 @@ void BMPImage::applyGaussian3x3() {
 
     pixelData = std::move(newPixels);
 }
-
