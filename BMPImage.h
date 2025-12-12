@@ -1,4 +1,3 @@
-
 /*
 *Anastasia Cherkasova
 *st140594@student.spbu.ru
@@ -12,7 +11,8 @@
 #include <string>
 #include <cstdint>
 
-class BMPImage : public IImage {
+class BMPImage : public IImage
+{
 public:
     BMPImage() = default;
 
@@ -23,19 +23,37 @@ public:
     void rotate90counter() override;
     void applyGaussian3x3() override;
 
+    int getWidth() const
+    {
+        return width;
+    }
+    int getHeight() const
+    {
+        return height;
+    }
 
-    int getWidth() const { return width; }
-    int getHeight() const { return height; }
-
-    const std::vector<uint8_t>& getPixelData() const { return pixelData; }
+    const std::vector<uint8_t>& getPixelData() const
+    {
+        return pixelData;
+    }
 
 private:
     int width = 0;
     int height = 0;
 
-    std::vector<uint8_t> bmpHeader;  
-    std::vector<uint8_t> dibHeader;  
-    std::vector<uint8_t> pixelData;  
+    std::vector<uint8_t> bmpHeader;
+    std::vector<uint8_t> dibHeader;
+    std::vector<uint8_t> pixelData;
+
+    static constexpr int BMP_HEADER_SIZE = 14;
+    static constexpr int DIB_HEADER_SIZE = 40;
+    static constexpr int BITS_PER_PIXEL = 24;
+
+    int calculateRowSize(int w) const
+    {
+        return ((BITS_PER_PIXEL * w + 31) / 32) * 4;
+    }
 };
 
 #endif
+

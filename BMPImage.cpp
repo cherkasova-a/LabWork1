@@ -3,32 +3,26 @@
 *st140594@student.spbu.ru
 *LabWork1
 */
-/*
-*Anastasia Cherkasova
-*st140594@student.spbu.ru
-*LabWork1
-*/
 #include "BMPImage.h"
 #include <fstream>
-#include <iostream>
-#include <vector>
-#include <cstdint>
+#include <stdexcept>
 #include <algorithm>
 
-bool BMPImage::load(const std::string& filename) {
+bool BMPImage::load(const std::string& filename)
+{
     std::ifstream file(filename, std::ios::binary);
     if (!file) return false;
 
-    bmpHeader.resize(14);
-    file.read(reinterpret_cast<char*>(bmpHeader.data()), 14);
+    bmpHeader.resize(BMP_HEADER_SIZE);
+    file.read(reinterpret_cast<char*>(bmpHeader.data()), BMP_HEADER_SIZE);
 
-    dibHeader.resize(40);
-    file.read(reinterpret_cast<char*>(dibHeader.data()), 40);
+    dibHeader.resize(DIB_HEADER_SIZE);
+    file.read(reinterpret_cast<char*>(dibHeader.data()), DIB_HEADER_SIZE);
 
     width = *reinterpret_cast<int*>(&dibHeader[4]);
     height = *reinterpret_cast<int*>(&dibHeader[8]);
 
-    int rowSize = ((24 * width + 31) / 32) * 4;
+    int rowSize = calculateRowSize(width);
     pixelData.resize(rowSize * height);
     file.read(reinterpret_cast<char*>(pixelData.data()), pixelData.size());
 
@@ -36,7 +30,8 @@ bool BMPImage::load(const std::string& filename) {
     return true;
 }
 
-bool BMPImage::save(const std::string& filename) {
+bool BMPImage::save(const std::string& filename)
+{
     std::ofstream file(filename, std::ios::binary);
     if (!file) return false;
 
@@ -48,21 +43,23 @@ bool BMPImage::save(const std::string& filename) {
     return true;
 }
 
-void BMPImage::rotate90clockwise() {
-    int oldRowSize = ((24 * width + 31) / 32) * 4;
+void BMPImage::rotate90clockwise()
+{
+    int oldRowSize = calculateRowSize(width);
     int newWidth = height;
     int newHeight = width;
-    int newRowSize = ((24 * newWidth + 31) / 32) * 4;
+    int newRowSize = calculateRowSize(newWidth);
 
     std::vector<uint8_t> newPixels(newRowSize * newHeight, 0);
 
-    for (int y = 0; y < height; ++y) {
-        for (int x = 0; x < width; ++x) {
+    for (int y = 0; y < height; ++y)
+    {
+        for (int x = 0; x < width; ++x)
+        {
             int srcIndex = y * oldRowSize + x * 3;
             int destIndex = x * newRowSize + (newWidth - 1 - y) * 3;
-            newPixels[destIndex] = pixelData[srcIndex];
-            newPixels[destIndex + 1] = pixelData[srcIndex + 1];
-            newPixels[destIndex + 2] = pixelData[srcIndex + 2];
+            for (int i = 0; i < 3; ++i)
+                newPixels[destIndex + i] = pixelData[srcIndex + i];
         }
     }
 
@@ -74,21 +71,23 @@ void BMPImage::rotate90clockwise() {
     *reinterpret_cast<int*>(&dibHeader[8]) = height;
 }
 
-void BMPImage::rotate90counter() {
-    int oldRowSize = ((24 * width + 31) / 32) * 4;
+void BMPImage::rotate90counter()
+{
+    int oldRowSize = calculateRowSize(width);
     int newWidth = height;
     int newHeight = width;
-    int newRowSize = ((24 * newWidth + 31) / 32) * 4;
+    int newRowSize = calculateRowSize(newWidth);
 
     std::vector<uint8_t> newPixels(newRowSize * newHeight, 0);
 
-    for (int y = 0; y < height; ++y) {
-        for (int x = 0; x < width; ++x) {
+    for (int y = 0; y < height; ++y)
+    {
+        for (int x = 0; x < width; ++x)
+        {
             int srcIndex = y * oldRowSize + x * 3;
             int destIndex = (newHeight - 1 - x) * newRowSize + y * 3;
-            newPixels[destIndex] = pixelData[srcIndex];
-            newPixels[destIndex + 1] = pixelData[srcIndex + 1];
-            newPixels[destIndex + 2] = pixelData[srcIndex + 2];
+            for (int i = 0; i < 3; ++i)
+                newPixels[destIndex + i] = pixelData[srcIndex + i];
         }
     }
 
@@ -100,26 +99,29 @@ void BMPImage::rotate90counter() {
     *reinterpret_cast<int*>(&dibHeader[8]) = height;
 }
 
-void BMPImage::applyGaussian3x3() {
-    int rowSize = ((24 * width + 31) / 32) * 4;
+void BMPImage::applyGaussian3x3()
+{
+    static const int kernel[3][3] = {{1,2,1},{2,4,2},{1,2,1}};
+    constexpr int kernelSum = 16;
+
+    int rowSize = calculateRowSize(width);
     std::vector<uint8_t> newPixels = pixelData;
 
-    int kernel[3][3] = {{1,2,1},{2,4,2},{1,2,1}};
-    int kernelSum = 16;
-
-    for (int y = 1; y < height - 1; ++y) {
-        for (int x = 1; x < width - 1; ++x) {
-            int sumR = 0, sumG = 0, sumB = 0;
-
-            for (int ky = -1; ky <= 1; ++ky) {
-                for (int kx = -1; kx <= 1; ++kx) {
+    for (int y = 1; y < height - 1; ++y)
+    {
+        for (int x = 1; x < width - 1; ++x)
+        {
+            int sumB = 0, sumG = 0, sumR = 0;
+            for (int ky = -1; ky <= 1; ++ky)
+            {
+                for (int kx = -1; kx <= 1; ++kx)
+                {
                     int idx = (y + ky) * rowSize + (x + kx) * 3;
                     sumB += pixelData[idx] * kernel[ky + 1][kx + 1];
                     sumG += pixelData[idx + 1] * kernel[ky + 1][kx + 1];
                     sumR += pixelData[idx + 2] * kernel[ky + 1][kx + 1];
                 }
             }
-
             int dstIdx = y * rowSize + x * 3;
             newPixels[dstIdx] = sumB / kernelSum;
             newPixels[dstIdx + 1] = sumG / kernelSum;
