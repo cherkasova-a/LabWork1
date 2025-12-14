@@ -19,8 +19,11 @@ bool BMPImage::load(const std::string& filename)
 
     uint32_t dibSize = 0;
     file.read(reinterpret_cast<char*>(&dibSize), sizeof(dibSize));
-    file.seekg(BMP_HEADER_SIZE, std::ios::beg);
 
+    if (dibSize < DIB_HEADER_MIN_SIZE)
+        throw std::runtime_error("Unsupported DIB header size");
+
+    file.seekg(BMP_HEADER_SIZE, std::ios::beg);
     dibHeader.resize(dibSize);
     file.read(reinterpret_cast<char*>(dibHeader.data()), dibSize);
 
@@ -37,12 +40,15 @@ bool BMPImage::load(const std::string& filename)
         throw std::runtime_error("Only uncompressed 24bpp BMP supported");
 
     uint32_t pixelOffset = read_u32_le(bmpHeader.data() + BMP_DATA_OFFSET);
-    pixelData.resize(calculateRowSize(width) * height);
+
+    int rowSize = calculateRowSize(width);
+    pixelData.resize(rowSize * height);
     file.seekg(pixelOffset, std::ios::beg);
     file.read(reinterpret_cast<char*>(pixelData.data()), pixelData.size());
 
     return true;
 }
+
 
 bool BMPImage::save(const std::string& filename)
 {
