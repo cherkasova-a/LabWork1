@@ -14,6 +14,8 @@ constexpr std::size_t DIB_HEADER_SIZE = 40;
 
 constexpr uint16_t BMP_SIGNATURE = 0x4D42;
 
+constexpr int GAUSS_KERNEL_SUM = 16;
+
 constexpr int BYTES_PER_PIXEL_24 = 3;
 
 inline int calculateRowSize(int width)
