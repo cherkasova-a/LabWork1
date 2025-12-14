@@ -2,14 +2,14 @@
 *Anastasia Cherkasova
 *st140594@student.spbu.ru
 *LabWork1
-*/
-#include "BMPImage.h"
+*/#include "BMPImage.h"
 #include "BMPConstants.h"
 #include <fstream>
 #include <stdexcept>
 #include <vector>
 #include <algorithm>
 #include <cstdint>
+#include <cmath>
 
 bool BMPImage::load(const std::string& filename)
 {
@@ -19,21 +19,15 @@ bool BMPImage::load(const std::string& filename)
 
     bmpHeader.resize(BMP_HEADER_SIZE);
     file.read(reinterpret_cast<char*>(bmpHeader.data()), BMP_HEADER_SIZE);
-
     if (bmpHeader[0] != 'B' || bmpHeader[1] != 'M')
         throw std::runtime_error("Not a BMP file");
 
-    uint32_t pixelOffset = *reinterpret_cast<uint32_t*>(&bmpHeader[10]);
-
-    uint32_t dibSize = 0;
+    uint32_t dibSize;
     file.read(reinterpret_cast<char*>(&dibSize), sizeof(dibSize));
-    dibHeader.resize(dibSize);
-    *reinterpret_cast<uint32_t*>(dibHeader.data()) = dibSize;
-    file.read(reinterpret_cast<char*>(dibHeader.data() + sizeof(dibSize)), dibSize - sizeof(dibSize));
+    file.seekg(BMP_HEADER_SIZE, std::ios::beg);
 
-    width = *reinterpret_cast<int32_t*>(&dibHeader[4]);
-    int32_t rawHeight = *reinterpret_cast<int32_t*>(&dibHeader[8]);
-    height = std::abs(rawHeight);
+    dibHeader.resize(dibSize);
+    file.read(reinterpret_cast<char*>(dibHeader.data()), dibSize);
 
     uint16_t planes = *reinterpret_cast<uint16_t*>(&dibHeader[12]);
     uint16_t bpp = *reinterpret_cast<uint16_t*>(&dibHeader[14]);
@@ -42,22 +36,15 @@ bool BMPImage::load(const std::string& filename)
     if (planes != 1 || bpp != 24 || compression != 0)
         throw std::runtime_error("Only uncompressed 24bpp BMP supported");
 
-    int rowSize = calculateRowSize(width);
-    pixelData.resize(rowSize * height);
+    width = *reinterpret_cast<int32_t*>(&dibHeader[4]);
+    height = std::abs(*reinterpret_cast<int32_t*>(&dibHeader[8]));
 
+    uint32_t pixelOffset = *reinterpret_cast<uint32_t*>(&bmpHeader[10]);
+    int rowSize = calculateRowSize(width);
+
+    pixelData.resize(rowSize * height);
     file.seekg(pixelOffset, std::ios::beg);
     file.read(reinterpret_cast<char*>(pixelData.data()), pixelData.size());
-
-    // Если высота положительная — BMP снизу вверх, нужно перевернуть строки
-    if (rawHeight > 0)
-    {
-        std::vector<uint8_t> flipped(pixelData.size());
-        for (int y = 0; y < height; ++y)
-        {
-            std::copy_n(&pixelData[y * rowSize], rowSize, &flipped[(height - 1 - y) * rowSize]);
-        }
-        pixelData = std::move(flipped);
-    }
 
     file.close();
     return true;
@@ -66,8 +53,7 @@ bool BMPImage::load(const std::string& filename)
 bool BMPImage::save(const std::string& filename)
 {
     std::ofstream file(filename, std::ios::binary);
-    if (!file)
-        return false;
+    if (!file) return false;
 
     file.write(reinterpret_cast<char*>(bmpHeader.data()), bmpHeader.size());
     file.write(reinterpret_cast<char*>(dibHeader.data()), dibHeader.size());
@@ -80,25 +66,24 @@ bool BMPImage::save(const std::string& filename)
 void BMPImage::rotate90clockwise()
 {
     int oldRowSize = calculateRowSize(width);
-    int newW = height;
-    int newH = width;
-    int newRowSize = calculateRowSize(newW);
-
-    std::vector<uint8_t> out(newRowSize * newH, 0);
+    int newWidth = height;
+    int newHeight = width;
+    int newRowSize = calculateRowSize(newWidth);
+    std::vector<uint8_t> newPixels(newRowSize * newHeight, 0);
 
     for (int y = 0; y < height; ++y)
     {
         for (int x = 0; x < width; ++x)
         {
-            int src = y * oldRowSize + x * BYTES_PER_PIXEL_24;
-            int dst = x * newRowSize + (newW - 1 - y) * BYTES_PER_PIXEL_24;
-            std::copy_n(&pixelData[src], BYTES_PER_PIXEL_24, &out[dst]);
+            int srcIndex = y * oldRowSize + x * BYTES_PER_PIXEL_24;
+            int dstIndex = x * newRowSize + (newWidth - 1 - y) * BYTES_PER_PIXEL_24;
+            std::copy_n(&pixelData[srcIndex], BYTES_PER_PIXEL_24, &newPixels[dstIndex]);
         }
     }
 
-    width = newW;
-    height = newH;
-    pixelData = std::move(out);
+    width = newWidth;
+    height = newHeight;
+    pixelData = std::move(newPixels);
 
     *reinterpret_cast<int32_t*>(&dibHeader[4]) = width;
     *reinterpret_cast<int32_t*>(&dibHeader[8]) = height;
@@ -107,25 +92,24 @@ void BMPImage::rotate90clockwise()
 void BMPImage::rotate90counter()
 {
     int oldRowSize = calculateRowSize(width);
-    int newW = height;
-    int newH = width;
-    int newRowSize = calculateRowSize(newW);
-
-    std::vector<uint8_t> out(newRowSize * newH, 0);
+    int newWidth = height;
+    int newHeight = width;
+    int newRowSize = calculateRowSize(newWidth);
+    std::vector<uint8_t> newPixels(newRowSize * newHeight, 0);
 
     for (int y = 0; y < height; ++y)
     {
         for (int x = 0; x < width; ++x)
         {
-            int src = y * oldRowSize + x * BYTES_PER_PIXEL_24;
-            int dst = (newH - 1 - x) * newRowSize + y * BYTES_PER_PIXEL_24;
-            std::copy_n(&pixelData[src], BYTES_PER_PIXEL_24, &out[dst]);
+            int srcIndex = y * oldRowSize + x * BYTES_PER_PIXEL_24;
+            int dstIndex = (newHeight - 1 - x) * newRowSize + y * BYTES_PER_PIXEL_24;
+            std::copy_n(&pixelData[srcIndex], BYTES_PER_PIXEL_24, &newPixels[dstIndex]);
         }
     }
 
-    width = newW;
-    height = newH;
-    pixelData = std::move(out);
+    width = newWidth;
+    height = newHeight;
+    pixelData = std::move(newPixels);
 
     *reinterpret_cast<int32_t*>(&dibHeader[4]) = width;
     *reinterpret_cast<int32_t*>(&dibHeader[8]) = height;
@@ -133,7 +117,7 @@ void BMPImage::rotate90counter()
 
 void BMPImage::applyGaussian3x3()
 {
-    static const int kernel[3][3] = {{1,2,1},{2,4,2},{1,2,1}};
+    static const int kernel[3][3] = { {1,2,1},{2,4,2},{1,2,1} };
     constexpr int kernelSum = 16;
 
     int rowSize = calculateRowSize(width);
@@ -153,9 +137,9 @@ void BMPImage::applyGaussian3x3()
                         sum[c] += pixelData[idx + c] * kernel[ky+1][kx+1];
                 }
             }
-            int dst = y * rowSize + x * BYTES_PER_PIXEL_24;
+            int dstIdx = y * rowSize + x * BYTES_PER_PIXEL_24;
             for (int c = 0; c < 3; ++c)
-                out[dst + c] = sum[c] / kernelSum;
+                out[dstIdx + c] = sum[c] / kernelSum;
         }
     }
 
