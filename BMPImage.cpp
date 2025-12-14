@@ -56,12 +56,11 @@ bool BMPImage::save(const std::string& filename)
 
     return true;
 }
-
 void BMPImage::rotate90clockwise()
 {
+    int oldRowSize = calculateRowSize(width);
     int newW = height;
     int newH = width;
-    int oldRowSize = calculateRowSize(width);
     int newRowSize = calculateRowSize(newW);
 
     std::vector<uint8_t> out(newRowSize * newH, 0);
@@ -70,11 +69,14 @@ void BMPImage::rotate90clockwise()
     {
         for (int x = 0; x < width; ++x)
         {
-            int src = y * oldRowSize + x * BYTES_PER_PIXEL;
-            int dstX = height - 1 - y;
-            int dstY = x;
-            int dst = dstY * newRowSize + dstX * BYTES_PER_PIXEL;
-            std::copy_n(&pixelData[src], BYTES_PER_PIXEL, &out[dst]);
+            for (int c = 0; c < BYTES_PER_PIXEL; ++c)
+            {
+                int srcIdx = y * oldRowSize + x * BYTES_PER_PIXEL + c;
+                int dstX = height - 1 - y;
+                int dstY = x;
+                int dstIdx = dstY * newRowSize + dstX * BYTES_PER_PIXEL + c;
+                out[dstIdx] = pixelData[srcIdx];
+            }
         }
     }
 
@@ -85,9 +87,9 @@ void BMPImage::rotate90clockwise()
 
 void BMPImage::rotate90counter()
 {
+    int oldRowSize = calculateRowSize(width);
     int newW = height;
     int newH = width;
-    int oldRowSize = calculateRowSize(width);
     int newRowSize = calculateRowSize(newW);
 
     std::vector<uint8_t> out(newRowSize * newH, 0);
@@ -96,11 +98,14 @@ void BMPImage::rotate90counter()
     {
         for (int x = 0; x < width; ++x)
         {
-            int src = y * oldRowSize + x * BYTES_PER_PIXEL;
-            int dstX = y;
-            int dstY = width - 1 - x;
-            int dst = dstY * newRowSize + dstX * BYTES_PER_PIXEL;
-            std::copy_n(&pixelData[src], BYTES_PER_PIXEL, &out[dst]);
+            for (int c = 0; c < BYTES_PER_PIXEL; ++c)
+            {
+                int srcIdx = y * oldRowSize + x * BYTES_PER_PIXEL + c;
+                int dstX = y;
+                int dstY = width - 1 - x;
+                int dstIdx = dstY * newRowSize + dstX * BYTES_PER_PIXEL + c;
+                out[dstIdx] = pixelData[srcIdx];
+            }
         }
     }
 
@@ -108,6 +113,7 @@ void BMPImage::rotate90counter()
     width = newW;
     height = newH;
 }
+
 
 
 void BMPImage::applyGaussian3x3()
