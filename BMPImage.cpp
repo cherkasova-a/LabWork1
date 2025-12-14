@@ -2,8 +2,7 @@
 *Anastasia Cherkasova
 *st140594@student.spbu.ru
 *LabWork1
-*/
-#include "BMPImage.h"
+*/#include "BMPImage.h"
 #include "BMPConstants.h"
 #include <fstream>
 #include <stdexcept>
@@ -19,35 +18,32 @@ bool BMPImage::load(const std::string& filename)
 
     bmpHeader.resize(BMP_HEADER_SIZE);
     file.read(reinterpret_cast<char*>(bmpHeader.data()), BMP_HEADER_SIZE);
-
     if (bmpHeader[0] != 'B' || bmpHeader[1] != 'M')
         throw std::runtime_error("Not a BMP file");
 
     uint32_t dibSize = 0;
-    file.read(reinterpret_cast<char*>(&dibSize), sizeof(uint32_t));
-    file.seekg(BMP_HEADER_SIZE, std::ios::beg);
-
+    file.read(reinterpret_cast<char*>(&dibSize), sizeof(dibSize));
     dibHeader.resize(dibSize);
-    file.read(reinterpret_cast<char*>(dibHeader.data()), dibSize);
+    *reinterpret_cast<uint32_t*>(dibHeader.data()) = dibSize;
+    file.read(reinterpret_cast<char*>(dibHeader.data() + sizeof(dibSize)), dibSize - sizeof(dibSize));
 
-    uint16_t planes = *reinterpret_cast<uint16_t*>(&dibHeader[12]);
-    uint16_t bpp = *reinterpret_cast<uint16_t*>(&dibHeader[14]);
-    uint32_t compression = *reinterpret_cast<uint32_t*>(&dibHeader[16]);
+    width  = *reinterpret_cast<int32_t*>(dibHeader.data() + 4);
+    height = std::abs(*reinterpret_cast<int32_t*>(dibHeader.data() + 8));
+    uint16_t planes = *reinterpret_cast<uint16_t*>(dibHeader.data() + 12);
+    uint16_t bpp    = *reinterpret_cast<uint16_t*>(dibHeader.data() + 14);
+    uint32_t compression = *reinterpret_cast<uint32_t*>(dibHeader.data() + 16);
 
-    if (planes != 1 || bpp != BYTES_PER_PIXEL_24 * 8 || compression != 0)
+    if (planes != 1 || bpp != 24 || compression != 0)
         throw std::runtime_error("Only uncompressed 24bpp BMP supported");
 
-    width = *reinterpret_cast<int32_t*>(&dibHeader[4]);
-    height = std::abs(*reinterpret_cast<int32_t*>(&dibHeader[8]));
-    uint32_t pixelOffset = *reinterpret_cast<uint32_t*>(&bmpHeader[10]);
-
+    uint32_t pixelOffset = *reinterpret_cast<uint32_t*>(bmpHeader.data() + 10);
     int rowSize = calculateRowSize(width);
     pixelData.resize(rowSize * height);
 
     file.seekg(pixelOffset, std::ios::beg);
     file.read(reinterpret_cast<char*>(pixelData.data()), pixelData.size());
-
     file.close();
+
     return true;
 }
 
@@ -57,10 +53,9 @@ bool BMPImage::save(const std::string& filename)
     if (!file)
         return false;
 
-    file.write(reinterpret_cast<const char*>(bmpHeader.data()), bmpHeader.size());
-    file.write(reinterpret_cast<const char*>(dibHeader.data()), dibHeader.size());
-    file.write(reinterpret_cast<const char*>(pixelData.data()), pixelData.size());
-
+    file.write(reinterpret_cast<char*>(bmpHeader.data()), bmpHeader.size());
+    file.write(reinterpret_cast<char*>(dibHeader.data()), dibHeader.size());
+    file.write(reinterpret_cast<char*>(pixelData.data()), pixelData.size());
     file.close();
     return true;
 }
@@ -71,23 +66,21 @@ void BMPImage::rotate90clockwise()
     int newWidth = height;
     int newHeight = width;
     int newRowSize = calculateRowSize(newWidth);
-
     std::vector<uint8_t> newPixels(newRowSize * newHeight, 0);
 
     for (int y = 0; y < height; ++y)
     {
         for (int x = 0; x < width; ++x)
         {
-            int srcIndex = y * oldRowSize + x * BYTES_PER_PIXEL_24;
-            int destIndex = x * newRowSize + (newWidth - 1 - y) * BYTES_PER_PIXEL_24;
-            std::copy_n(&pixelData[srcIndex], BYTES_PER_PIXEL_24, &newPixels[destIndex]);
+            int src = y * oldRowSize + x * BYTES_PER_PIXEL_24;
+            int dst = x * newRowSize + (newWidth - 1 - y) * BYTES_PER_PIXEL_24;
+            std::copy_n(&pixelData[src], BYTES_PER_PIXEL_24, &newPixels[dst]);
         }
     }
 
     width = newWidth;
     height = newHeight;
     pixelData = std::move(newPixels);
-
     *reinterpret_cast<int32_t*>(&dibHeader[4]) = width;
     *reinterpret_cast<int32_t*>(&dibHeader[8]) = height;
 }
@@ -98,23 +91,21 @@ void BMPImage::rotate90counter()
     int newWidth = height;
     int newHeight = width;
     int newRowSize = calculateRowSize(newWidth);
-
     std::vector<uint8_t> newPixels(newRowSize * newHeight, 0);
 
     for (int y = 0; y < height; ++y)
     {
         for (int x = 0; x < width; ++x)
         {
-            int srcIndex = y * oldRowSize + x * BYTES_PER_PIXEL_24;
-            int destIndex = (newHeight - 1 - x) * newRowSize + y * BYTES_PER_PIXEL_24;
-            std::copy_n(&pixelData[srcIndex], BYTES_PER_PIXEL_24, &newPixels[destIndex]);
+            int src = y * oldRowSize + x * BYTES_PER_PIXEL_24;
+            int dst = (newHeight - 1 - x) * newRowSize + y * BYTES_PER_PIXEL_24;
+            std::copy_n(&pixelData[src], BYTES_PER_PIXEL_24, &newPixels[dst]);
         }
     }
 
     width = newWidth;
     height = newHeight;
     pixelData = std::move(newPixels);
-
     *reinterpret_cast<int32_t*>(&dibHeader[4]) = width;
     *reinterpret_cast<int32_t*>(&dibHeader[8]) = height;
 }
@@ -122,10 +113,10 @@ void BMPImage::rotate90counter()
 void BMPImage::applyGaussian3x3()
 {
     static const int kernel[3][3] = {{1,2,1},{2,4,2},{1,2,1}};
-    constexpr int kernelSum = GAUSS_KERNEL_SUM;
+    constexpr int kernelSum = 16;
 
     int rowSize = calculateRowSize(width);
-    std::vector<uint8_t> newPixels = pixelData;
+    std::vector<uint8_t> out = pixelData;
 
     for (int y = 1; y < height - 1; ++y)
     {
@@ -138,15 +129,15 @@ void BMPImage::applyGaussian3x3()
                 {
                     int idx = (y + ky) * rowSize + (x + kx) * BYTES_PER_PIXEL_24;
                     for (int c = 0; c < 3; ++c)
-                        sum[c] += pixelData[idx + c] * kernel[ky + 1][kx + 1];
+                        sum[c] += pixelData[idx + c] * kernel[ky+1][kx+1];
                 }
             }
-            int dstIdx = y * rowSize + x * BYTES_PER_PIXEL_24;
+            int dst = y * rowSize + x * BYTES_PER_PIXEL_24;
             for (int c = 0; c < 3; ++c)
-                newPixels[dstIdx + c] = sum[c] / kernelSum;
+                out[dst + c] = sum[c] / kernelSum;
         }
     }
 
-    pixelData = std::move(newPixels);
+    pixelData = std::move(out);
 }
 
