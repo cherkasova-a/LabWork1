@@ -2,7 +2,8 @@
 *Anastasia Cherkasova
 *st140594@student.spbu.ru
 *LabWork1
-*/#include "BMPImage.h"
+*/
+#include "BMPImage.h"
 #include "BMPConstants.h"
 #include <fstream>
 #include <stdexcept>
@@ -18,8 +19,11 @@ bool BMPImage::load(const std::string& filename)
 
     bmpHeader.resize(BMP_HEADER_SIZE);
     file.read(reinterpret_cast<char*>(bmpHeader.data()), BMP_HEADER_SIZE);
+
     if (bmpHeader[0] != 'B' || bmpHeader[1] != 'M')
         throw std::runtime_error("Not a BMP file");
+
+    uint32_t pixelOffset = *reinterpret_cast<uint32_t*>(&bmpHeader[10]);
 
     uint32_t dibSize = 0;
     file.read(reinterpret_cast<char*>(&dibSize), sizeof(dibSize));
@@ -27,23 +31,35 @@ bool BMPImage::load(const std::string& filename)
     *reinterpret_cast<uint32_t*>(dibHeader.data()) = dibSize;
     file.read(reinterpret_cast<char*>(dibHeader.data() + sizeof(dibSize)), dibSize - sizeof(dibSize));
 
-    width  = *reinterpret_cast<int32_t*>(dibHeader.data() + 4);
-    height = std::abs(*reinterpret_cast<int32_t*>(dibHeader.data() + 8));
-    uint16_t planes = *reinterpret_cast<uint16_t*>(dibHeader.data() + 12);
-    uint16_t bpp    = *reinterpret_cast<uint16_t*>(dibHeader.data() + 14);
-    uint32_t compression = *reinterpret_cast<uint32_t*>(dibHeader.data() + 16);
+    width = *reinterpret_cast<int32_t*>(&dibHeader[4]);
+    int32_t rawHeight = *reinterpret_cast<int32_t*>(&dibHeader[8]);
+    height = std::abs(rawHeight);
+
+    uint16_t planes = *reinterpret_cast<uint16_t*>(&dibHeader[12]);
+    uint16_t bpp = *reinterpret_cast<uint16_t*>(&dibHeader[14]);
+    uint32_t compression = *reinterpret_cast<uint32_t*>(&dibHeader[16]);
 
     if (planes != 1 || bpp != 24 || compression != 0)
         throw std::runtime_error("Only uncompressed 24bpp BMP supported");
 
-    uint32_t pixelOffset = *reinterpret_cast<uint32_t*>(bmpHeader.data() + 10);
     int rowSize = calculateRowSize(width);
     pixelData.resize(rowSize * height);
 
     file.seekg(pixelOffset, std::ios::beg);
     file.read(reinterpret_cast<char*>(pixelData.data()), pixelData.size());
-    file.close();
 
+    // Если высота положительная — BMP снизу вверх, нужно перевернуть строки
+    if (rawHeight > 0)
+    {
+        std::vector<uint8_t> flipped(pixelData.size());
+        for (int y = 0; y < height; ++y)
+        {
+            std::copy_n(&pixelData[y * rowSize], rowSize, &flipped[(height - 1 - y) * rowSize]);
+        }
+        pixelData = std::move(flipped);
+    }
+
+    file.close();
     return true;
 }
 
@@ -56,6 +72,7 @@ bool BMPImage::save(const std::string& filename)
     file.write(reinterpret_cast<char*>(bmpHeader.data()), bmpHeader.size());
     file.write(reinterpret_cast<char*>(dibHeader.data()), dibHeader.size());
     file.write(reinterpret_cast<char*>(pixelData.data()), pixelData.size());
+
     file.close();
     return true;
 }
@@ -63,24 +80,26 @@ bool BMPImage::save(const std::string& filename)
 void BMPImage::rotate90clockwise()
 {
     int oldRowSize = calculateRowSize(width);
-    int newWidth = height;
-    int newHeight = width;
-    int newRowSize = calculateRowSize(newWidth);
-    std::vector<uint8_t> newPixels(newRowSize * newHeight, 0);
+    int newW = height;
+    int newH = width;
+    int newRowSize = calculateRowSize(newW);
+
+    std::vector<uint8_t> out(newRowSize * newH, 0);
 
     for (int y = 0; y < height; ++y)
     {
         for (int x = 0; x < width; ++x)
         {
             int src = y * oldRowSize + x * BYTES_PER_PIXEL_24;
-            int dst = x * newRowSize + (newWidth - 1 - y) * BYTES_PER_PIXEL_24;
-            std::copy_n(&pixelData[src], BYTES_PER_PIXEL_24, &newPixels[dst]);
+            int dst = x * newRowSize + (newW - 1 - y) * BYTES_PER_PIXEL_24;
+            std::copy_n(&pixelData[src], BYTES_PER_PIXEL_24, &out[dst]);
         }
     }
 
-    width = newWidth;
-    height = newHeight;
-    pixelData = std::move(newPixels);
+    width = newW;
+    height = newH;
+    pixelData = std::move(out);
+
     *reinterpret_cast<int32_t*>(&dibHeader[4]) = width;
     *reinterpret_cast<int32_t*>(&dibHeader[8]) = height;
 }
@@ -88,24 +107,26 @@ void BMPImage::rotate90clockwise()
 void BMPImage::rotate90counter()
 {
     int oldRowSize = calculateRowSize(width);
-    int newWidth = height;
-    int newHeight = width;
-    int newRowSize = calculateRowSize(newWidth);
-    std::vector<uint8_t> newPixels(newRowSize * newHeight, 0);
+    int newW = height;
+    int newH = width;
+    int newRowSize = calculateRowSize(newW);
+
+    std::vector<uint8_t> out(newRowSize * newH, 0);
 
     for (int y = 0; y < height; ++y)
     {
         for (int x = 0; x < width; ++x)
         {
             int src = y * oldRowSize + x * BYTES_PER_PIXEL_24;
-            int dst = (newHeight - 1 - x) * newRowSize + y * BYTES_PER_PIXEL_24;
-            std::copy_n(&pixelData[src], BYTES_PER_PIXEL_24, &newPixels[dst]);
+            int dst = (newH - 1 - x) * newRowSize + y * BYTES_PER_PIXEL_24;
+            std::copy_n(&pixelData[src], BYTES_PER_PIXEL_24, &out[dst]);
         }
     }
 
-    width = newWidth;
-    height = newHeight;
-    pixelData = std::move(newPixels);
+    width = newW;
+    height = newH;
+    pixelData = std::move(out);
+
     *reinterpret_cast<int32_t*>(&dibHeader[4]) = width;
     *reinterpret_cast<int32_t*>(&dibHeader[8]) = height;
 }
