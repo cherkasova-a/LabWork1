@@ -67,4 +67,3 @@ private:
         ptr[3] = static_cast<uint8_t>((v >> 24) & 0xFF);
     }
 };
-
