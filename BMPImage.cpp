@@ -38,7 +38,6 @@ bool BMPImage::load(const std::string& filename)
 
     uint32_t pixelOffset = read_u32_le(bmpHeader.data() + BMP_DATA_OFFSET);
     pixelData.resize(calculateRowSize(width) * height);
-
     file.seekg(pixelOffset, std::ios::beg);
     file.read(reinterpret_cast<char*>(pixelData.data()), pixelData.size());
 
@@ -62,10 +61,11 @@ void BMPImage::rotate90clockwise()
 {
     int newW = height;
     int newH = width;
+    int oldRowSize = calculateRowSize(width);
     int newRowSize = calculateRowSize(newW);
+
     std::vector<uint8_t> out(newRowSize * newH, 0);
 
-    int oldRowSize = calculateRowSize(width);
     for (int y = 0; y < height; ++y)
     {
         for (int x = 0; x < width; ++x)
@@ -79,18 +79,17 @@ void BMPImage::rotate90clockwise()
     pixelData = std::move(out);
     width = newW;
     height = newH;
-    write_s32_le(dibHeader.data() + DIB_WIDTH_OFFSET, width);
-    write_s32_le(dibHeader.data() + DIB_HEIGHT_OFFSET, height);
 }
 
 void BMPImage::rotate90counter()
 {
     int newW = height;
     int newH = width;
+    int oldRowSize = calculateRowSize(width);
     int newRowSize = calculateRowSize(newW);
+
     std::vector<uint8_t> out(newRowSize * newH, 0);
 
-    int oldRowSize = calculateRowSize(width);
     for (int y = 0; y < height; ++y)
     {
         for (int x = 0; x < width; ++x)
@@ -104,21 +103,24 @@ void BMPImage::rotate90counter()
     pixelData = std::move(out);
     width = newW;
     height = newH;
-    write_s32_le(dibHeader.data() + DIB_WIDTH_OFFSET, width);
-    write_s32_le(dibHeader.data() + DIB_HEIGHT_OFFSET, height);
 }
 
 void BMPImage::applyGaussian3x3()
 {
-    const int kernel[3][3] = {{1, 2, 1}, {2, 4, 2}, {1, 2, 1}};
     int rowSize = calculateRowSize(width);
     std::vector<uint8_t> newPixels(pixelData.size(), 0);
+
+    constexpr int kernel[3][3] = {
+        {1, 2, 1},
+        {2, 4, 2},
+        {1, 2, 1}
+    };
 
     for (int y = 1; y < height - 1; ++y)
     {
         for (int x = 1; x < width - 1; ++x)
         {
-            for (int c = 0; c < 3; ++c)
+            for (int c = 0; c < BYTES_PER_PIXEL; ++c)
             {
                 int sum = 0;
                 for (int ky = -1; ky <= 1; ++ky)
@@ -133,5 +135,6 @@ void BMPImage::applyGaussian3x3()
             }
         }
     }
+
     pixelData = std::move(newPixels);
 }
