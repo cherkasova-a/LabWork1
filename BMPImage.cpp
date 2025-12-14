@@ -15,35 +15,31 @@ bool BMPImage::load(const std::string& filename)
     bmpHeader.resize(BMP_HEADER_SIZE);
     file.read(reinterpret_cast<char*>(bmpHeader.data()), BMP_HEADER_SIZE);
     if (bmpHeader[0] != 'B' || bmpHeader[1] != 'M')
-        throw std::runtime_error("Not a BMP file");
+        throw std::runtime_error("Only BMP files supported");
 
     uint32_t dibSize = 0;
     file.read(reinterpret_cast<char*>(&dibSize), sizeof(dibSize));
-
-    if (dibSize < DIB_HEADER_MIN_SIZE)
-        throw std::runtime_error("Unsupported DIB header size");
+    file.seekg(BMP_HEADER_SIZE, std::ios::beg);
 
     dibHeader.resize(dibSize);
-    file.seekg(BMP_HEADER_SIZE, std::ios::beg);
     file.read(reinterpret_cast<char*>(dibHeader.data()), dibSize);
 
-    width = *reinterpret_cast<int32_t*>(&dibHeader[DIB_WIDTH_OFFSET]);
-    int32_t rawHeight = *reinterpret_cast<int32_t*>(&dibHeader[DIB_HEIGHT_OFFSET]);
-    height = std::abs(rawHeight);
+    width = read_s32_le(dibHeader.data() + DIB_WIDTH_OFFSET);
+    int32_t rawHeight = read_s32_le(dibHeader.data() + DIB_HEIGHT_OFFSET);
     originalTopDown = rawHeight < 0;
+    height = std::abs(rawHeight);
 
-    uint16_t planes = *reinterpret_cast<uint16_t*>(&dibHeader[DIB_PLANES_OFFSET]);
-    uint16_t bpp = *reinterpret_cast<uint16_t*>(&dibHeader[DIB_BPP_OFFSET]);
-    uint32_t compression = *reinterpret_cast<uint32_t*>(&dibHeader[DIB_COMPRESSION_OFFSET]);
+    uint16_t planes = read_u16_le(dibHeader.data() + DIB_PLANES_OFFSET);
+    uint16_t bpp = read_u16_le(dibHeader.data() + DIB_BPP_OFFSET);
+    uint32_t compression = read_u32_le(dibHeader.data() + DIB_COMPRESSION_OFFSET);
 
     if (planes != 1 || bpp != BITS_PER_PIXEL || compression != 0)
         throw std::runtime_error("Only uncompressed 24bpp BMP supported");
 
-    uint32_t pixelOffset = *reinterpret_cast<uint32_t*>(&bmpHeader[BMP_DATA_OFFSET]);
-    file.seekg(pixelOffset, std::ios::beg);
+    uint32_t pixelOffset = read_u32_le(bmpHeader.data() + BMP_DATA_OFFSET);
+    pixelData.resize(calculateRowSize(width) * height);
 
-    int rowSize = calculateRowSize(width);
-    pixelData.resize(rowSize * height);
+    file.seekg(pixelOffset, std::ios::beg);
     file.read(reinterpret_cast<char*>(pixelData.data()), pixelData.size());
 
     return true;
