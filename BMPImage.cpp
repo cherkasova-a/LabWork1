@@ -71,7 +71,9 @@ void BMPImage::rotate90clockwise()
         for (int x = 0; x < width; ++x)
         {
             int src = y * oldRowSize + x * BYTES_PER_PIXEL;
-            int dst = x * newRowSize + (newW - 1 - y) * BYTES_PER_PIXEL;
+            int dstX = height - 1 - y;
+            int dstY = x;
+            int dst = dstY * newRowSize + dstX * BYTES_PER_PIXEL;
             std::copy_n(&pixelData[src], BYTES_PER_PIXEL, &out[dst]);
         }
     }
@@ -95,7 +97,9 @@ void BMPImage::rotate90counter()
         for (int x = 0; x < width; ++x)
         {
             int src = y * oldRowSize + x * BYTES_PER_PIXEL;
-            int dst = (newH - 1 - x) * newRowSize + y * BYTES_PER_PIXEL;
+            int dstX = y;
+            int dstY = width - 1 - x;
+            int dst = dstY * newRowSize + dstX * BYTES_PER_PIXEL;
             std::copy_n(&pixelData[src], BYTES_PER_PIXEL, &out[dst]);
         }
     }
@@ -104,6 +108,7 @@ void BMPImage::rotate90counter()
     width = newW;
     height = newH;
 }
+
 
 void BMPImage::applyGaussian3x3()
 {
