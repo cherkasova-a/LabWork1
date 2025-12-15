@@ -63,10 +63,20 @@ bool BMPImage::save(const std::string& filename)
     if (!file)
         return false;
 
+    int rowSize = calculateRowSize(width);
+    uint32_t imageSize = rowSize * height;
+    uint32_t fileSize = bmpHeader.size() + dibHeader.size() + imageSize;
+
+    write_u32_le(bmpHeader.data() + BMP_FILESIZE_OFFSET, fileSize);
+    write_s32_le(dibHeader.data() + DIB_WIDTH_OFFSET, width);
+    write_s32_le(
+        dibHeader.data() + DIB_HEIGHT_OFFSET,
+        originalTopDown ? -height : height
+    );
+    write_u32_le(dibHeader.data() + DIB_IMAGE_SIZE_OFFSET, imageSize);
+
     file.write(reinterpret_cast<char*>(bmpHeader.data()), bmpHeader.size());
     file.write(reinterpret_cast<char*>(dibHeader.data()), dibHeader.size());
-
-    int rowSize = calculateRowSize(width);
 
     for (int y = 0; y < height; ++y)
     {
@@ -76,6 +86,7 @@ bool BMPImage::save(const std::string& filename)
 
     return true;
 }
+
 
 
 void BMPImage::rotate90clockwise()
@@ -106,9 +117,6 @@ void BMPImage::rotate90clockwise()
     width = newW;
     height = newH;
 
-    write_s32_le(dibHeader.data() + DIB_WIDTH_OFFSET,  width);
-    write_s32_le(dibHeader.data() + DIB_HEIGHT_OFFSET, originalTopDown ? -height : height);
-
 }
 
 void BMPImage::rotate90counter()
@@ -138,9 +146,6 @@ void BMPImage::rotate90counter()
     pixelData = std::move(out);
     width = newW;
     height = newH;
-
-    write_s32_le(dibHeader.data() + DIB_WIDTH_OFFSET,  width);
-    write_s32_le(dibHeader.data() + DIB_HEIGHT_OFFSET, originalTopDown ? -height : height);
 
 }
 

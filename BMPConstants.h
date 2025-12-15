@@ -14,6 +14,9 @@ constexpr int BITS_PER_PIXEL = 24;
 constexpr int BYTES_PER_PIXEL = 3;
 constexpr int ROW_ALIGNMENT = 4;
 
+constexpr uint32_t BMP_FILESIZE_OFFSET = 2;
+constexpr uint32_t DIB_IMAGE_SIZE_OFFSET = 20;
+
 constexpr uint32_t BMP_DATA_OFFSET = 10;
 
 constexpr uint32_t DIB_WIDTH_OFFSET        = 4;
