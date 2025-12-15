@@ -1,3 +1,8 @@
+/*
+*Anastasia Cherkasova
+*st140594@student.spbu.ru
+*LabWork1
+*/
 #include "BMPImage.h"
 #include "BMPConstants.h"
 #include <fstream>
@@ -15,20 +20,18 @@ bool BMPImage::load(const std::string& filename)
     bmpHeader.resize(BMP_HEADER_SIZE);
     file.read(reinterpret_cast<char*>(bmpHeader.data()), BMP_HEADER_SIZE);
     if (bmpHeader[0] != 'B' || bmpHeader[1] != 'M')
-        throw std::runtime_error("Only BMP files supported");
+        return false;
 
-    uint32_t dibSize = 0;
+    uint32_t dibSize;
     file.read(reinterpret_cast<char*>(&dibSize), sizeof(dibSize));
-
-    if (dibSize < DIB_HEADER_MIN_SIZE)
-        throw std::runtime_error("Unsupported DIB header size");
-
     file.seekg(BMP_HEADER_SIZE, std::ios::beg);
+
     dibHeader.resize(dibSize);
     file.read(reinterpret_cast<char*>(dibHeader.data()), dibSize);
 
     width = read_s32_le(dibHeader.data() + DIB_WIDTH_OFFSET);
     int32_t rawHeight = read_s32_le(dibHeader.data() + DIB_HEIGHT_OFFSET);
+
     originalTopDown = rawHeight < 0;
     height = std::abs(rawHeight);
 
@@ -40,15 +43,19 @@ bool BMPImage::load(const std::string& filename)
         throw std::runtime_error("Only uncompressed 24bpp BMP supported");
 
     uint32_t pixelOffset = read_u32_le(bmpHeader.data() + BMP_DATA_OFFSET);
-
     int rowSize = calculateRowSize(width);
-    pixelData.resize(rowSize * height);
+
+    pixelData.assign(rowSize * height, 0);
     file.seekg(pixelOffset, std::ios::beg);
-    file.read(reinterpret_cast<char*>(pixelData.data()), pixelData.size());
+
+    for (int y = 0; y < height; ++y)
+    {
+        int row = originalTopDown ? y : (height - 1 - y);
+        file.read(reinterpret_cast<char*>(&pixelData[row * rowSize]), rowSize);
+    }
 
     return true;
 }
-
 
 bool BMPImage::save(const std::string& filename)
 {
@@ -58,10 +65,19 @@ bool BMPImage::save(const std::string& filename)
 
     file.write(reinterpret_cast<char*>(bmpHeader.data()), bmpHeader.size());
     file.write(reinterpret_cast<char*>(dibHeader.data()), dibHeader.size());
-    file.write(reinterpret_cast<char*>(pixelData.data()), pixelData.size());
+
+    int rowSize = calculateRowSize(width);
+
+    for (int y = 0; y < height; ++y)
+    {
+        int row = originalTopDown ? y : (height - 1 - y);
+        file.write(reinterpret_cast<char*>(&pixelData[row * rowSize]), rowSize);
+    }
 
     return true;
 }
+
+
 void BMPImage::rotate90clockwise()
 {
     int oldRowSize = calculateRowSize(width);
