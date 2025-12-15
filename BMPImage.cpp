@@ -105,6 +105,10 @@ void BMPImage::rotate90clockwise()
     pixelData = std::move(out);
     width = newW;
     height = newH;
+
+    write_s32_le(dibHeader.data() + DIB_WIDTH_OFFSET,  width);
+    write_s32_le(dibHeader.data() + DIB_HEIGHT_OFFSET, originalTopDown ? -height : height);
+
 }
 
 void BMPImage::rotate90counter()
@@ -134,6 +138,10 @@ void BMPImage::rotate90counter()
     pixelData = std::move(out);
     width = newW;
     height = newH;
+
+    write_s32_le(dibHeader.data() + DIB_WIDTH_OFFSET,  width);
+    write_s32_le(dibHeader.data() + DIB_HEIGHT_OFFSET, originalTopDown ? -height : height);
+
 }
 
 
