@@ -68,11 +68,9 @@ bool BMPImage::save(const std::string& filename)
     uint32_t fileSize = bmpHeader.size() + dibHeader.size() + imageSize;
 
     write_u32_le(bmpHeader.data() + BMP_FILESIZE_OFFSET, fileSize);
+    write_u32_le(bmpHeader.data() + BMP_DATA_OFFSET, bmpHeader.size() + dibHeader.size());
     write_s32_le(dibHeader.data() + DIB_WIDTH_OFFSET, width);
-    write_s32_le(
-        dibHeader.data() + DIB_HEIGHT_OFFSET,
-        originalTopDown ? -height : height
-    );
+    write_s32_le(dibHeader.data() + DIB_HEIGHT_OFFSET, originalTopDown ? -height : height);
     write_u32_le(dibHeader.data() + DIB_IMAGE_SIZE_OFFSET, imageSize);
 
     file.write(reinterpret_cast<char*>(bmpHeader.data()), bmpHeader.size());
@@ -86,8 +84,6 @@ bool BMPImage::save(const std::string& filename)
 
     return true;
 }
-
-
 
 void BMPImage::rotate90clockwise()
 {
@@ -117,6 +113,7 @@ void BMPImage::rotate90clockwise()
     width = newW;
     height = newH;
 
+    originalTopDown = false;
 }
 
 void BMPImage::rotate90counter()
@@ -147,8 +144,8 @@ void BMPImage::rotate90counter()
     width = newW;
     height = newH;
 
+    originalTopDown = false;
 }
-
 
 
 void BMPImage::applyGaussian3x3()
